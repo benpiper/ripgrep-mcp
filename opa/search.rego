@@ -1,28 +1,28 @@
 package search
 import rego.v1
 
-default decision := {
-  "allow": false,
-  "redactSnippet": false,
-  "redactPath": false,
-}
+default decision.allow := false
+default decision.redactSnippet := false
+default decision.redactPath := false
 
-decision := {
-  "allow": true,
-  "redactSnippet": false,
-  "redactPath": false,
-} if {
+decision.allow := true if {
   input.action == "start_search"
   not denied_path(input.request.root)
 }
 
-decision := {
-  "allow": true,
-  "redactSnippet": looks_sensitive(input.match.text) or denied_path(input.match.path),
-  "redactPath": denied_path(input.match.path),
-} if {
+decision.allow := true if {
   input.action == "read_search_result"
   not denied_path(input.match.path)
+}
+
+decision.redactSnippet := true if {
+  input.action == "read_search_result"
+  looks_sensitive(input.match.text) or denied_path(input.match.path)
+}
+
+decision.redactPath := true if {
+  input.action == "read_search_result"
+  denied_path(input.match.path)
 }
 
 denied_path(path) if {

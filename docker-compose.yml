@@ -24,4 +24,4 @@ services:
       - "3000:3000"
     volumes:
       - .:/workspace
-    working_dir: /workspace
+    working_dir: /app

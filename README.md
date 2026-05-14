@@ -67,7 +67,6 @@ Redaction reasons are explicit `reasonCodes` emitted by OPA. If a result is reda
 Example codes include:
 
 - `password_keyword`
-- `email_address`
 - `aws_access_key`
 - `dotfile_path`
 - `private_key_file_path`

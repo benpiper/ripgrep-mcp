@@ -65,11 +65,6 @@ decision.reasonCodes contains "private_key_material" if {
   regex.match("(?i)-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----", input.match.text)
 }
 
-decision.reasonCodes contains "email_address" if {
-  input.action == "read_search_result"
-  regex.match("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", input.match.text)
-}
-
 decision.reasonCodes contains "ssn" if {
   input.action == "read_search_result"
   regex.match("\\b\\d{3}-\\d{2}-\\d{4}\\b", input.match.text)

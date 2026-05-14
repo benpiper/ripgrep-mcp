@@ -87,6 +87,46 @@ The compose setup starts:
 
 The MCP server listens on `http://localhost:3000/mcp` in the compose setup.
 
+## Testing
+
+Use Docker Compose to run both the MCP server and OPA locally:
+
+```bash
+docker compose up --build
+```
+
+With the stack running:
+
+- OPA is available on `http://localhost:8181`
+- the MCP server is available on `http://localhost:3000/mcp`
+- the server reads policy decisions from `OPA_URL=http://opa:8181`
+
+That makes it easy to test the policy path without any LLM. A typical flow is:
+
+1. Start the stack with Docker Compose.
+2. Connect any MCP client to `http://localhost:3000/mcp`.
+3. Call `search_start` with a repository path and pattern.
+4. Poll `search_status` with the returned `job_id`.
+5. Use `search_cancel` if you want to verify cancellation behavior.
+
+If you want to exercise the server manually from the command line, use an MCP client or inspector against the Streamable HTTP endpoint rather than an LLM-backed host.
+
+### MCP Inspector
+
+MCP Inspector is the easiest way to test the server without any LLM. With the Docker Compose stack running, you can inspect the server in either UI or CLI mode:
+
+```bash
+# Open the Inspector UI
+npx @modelcontextprotocol/inspector
+
+# Or run a CLI smoke test against the compose server
+npx @modelcontextprotocol/inspector --cli http://localhost:3000/mcp --transport http --method tools/list
+```
+
+In the UI, connect to `http://localhost:3000/mcp` as a Streamable HTTP server, then call `search_start`, `search_status`, and `search_cancel` directly.
+
+Tip: when the server runs in Docker Compose, use `/workspace` as the `root` for `search_start`. The container does not see your host filesystem path, and the sample OPA policy denies dot-prefixed roots such as `.`.
+
 ## Next Steps
 
 1. Add authentication at the HTTP layer, such as a bearer token or mTLS.

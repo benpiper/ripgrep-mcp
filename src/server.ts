@@ -414,7 +414,7 @@ function parseRgMatch(payload: unknown): SearchMatch | null {
 
 function applyDecision(match: SearchMatch, decision: SearchDecision): SearchMatch {
   const redactionReasons = buildRedactionReasons(match, decision);
-  const redacted = redactionReasons.length > 0;
+  const redacted = Boolean(decision.redactSnippet || decision.redactPath);
 
   return {
     path: decision.redactPath ? "[REDACTED]" : match.path,
@@ -447,10 +447,6 @@ function buildRedactionReasons(match: SearchMatch, decision: SearchDecision): st
 
   if (decision.redactPath) {
     reasons.push(...classifyPathRedaction(match.path));
-  }
-
-  if (reasons.length === 0 && (decision.redactSnippet || decision.redactPath)) {
-    reasons.push("OPA requested redaction");
   }
 
   return [...new Set(reasons)];
@@ -533,10 +529,6 @@ function classifySnippetRedaction(match: SearchMatch): string[] {
     reasons.push("secret field value redacted");
   }
 
-  if (reasons.length === 0) {
-    reasons.push("sensitive content detected");
-  }
-
   return reasons;
 }
 
@@ -595,7 +587,7 @@ function toPublicSearchMatch(match: SearchMatch): PublicSearchMatch {
   return {
     text: match.text,
     redacted: match.redacted,
-    redactionReasons: match.redactionReasons,
+    redactionReasons: match.redactionReasons ?? [],
   };
 }
 

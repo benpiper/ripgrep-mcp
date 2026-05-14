@@ -25,6 +25,8 @@ type SearchMatch = {
   line: number;
   column: number | null;
   text: string;
+  matchStart: number | null;
+  matchEnd: number | null;
   redacted?: boolean;
   redactionReasons?: string[];
 };
@@ -355,15 +357,20 @@ function parseRgMatch(payload: unknown): SearchMatch | null {
     return null;
   }
 
-  const column = Array.isArray(submatches) && submatches.length > 0
-    ? ((submatches[0] as Record<string, unknown>).start as number | undefined) ?? null
-    : null;
+  const firstSubmatch = Array.isArray(submatches) && submatches.length > 0
+    ? (submatches[0] as Record<string, unknown>)
+    : undefined;
+  const matchStart = typeof firstSubmatch?.start === "number" ? firstSubmatch.start : null;
+  const matchEnd = typeof firstSubmatch?.end === "number" ? firstSubmatch.end : null;
+  const column = matchStart;
 
   return {
     path: pathText,
     line: lineText,
     column,
     text: lines,
+    matchStart,
+    matchEnd,
   };
 }
 
@@ -375,10 +382,22 @@ function applyDecision(match: SearchMatch, decision: SearchDecision): SearchMatc
     path: decision.redactPath ? "[REDACTED]" : match.path,
     line: match.line,
     column: match.column,
-    text: decision.redactSnippet ? "[REDACTED]" : match.text,
+    text: decision.redactSnippet ? redactSnippet(match) : match.text,
+    matchStart: match.matchStart,
+    matchEnd: match.matchEnd,
     redacted,
     redactionReasons: redacted ? redactionReasons : undefined,
   };
+}
+
+function redactSnippet(match: SearchMatch): string {
+  if (match.matchStart === null || match.matchEnd === null) {
+    return "[REDACTED]";
+  }
+
+  const start = Math.max(0, Math.min(match.matchStart, match.text.length));
+  const end = Math.max(start, Math.min(match.matchEnd, match.text.length));
+  return `${match.text.slice(0, start)}[REDACTED]${match.text.slice(end)}`;
 }
 
 function buildRedactionReasons(decision: SearchDecision): string[] {

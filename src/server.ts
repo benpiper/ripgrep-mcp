@@ -33,6 +33,12 @@ type SearchMatch = {
   redactionReasons?: string[];
 };
 
+type PublicSearchMatch = {
+  text: string;
+  redacted?: boolean;
+  redactionReasons?: string[];
+};
+
 type SearchDecision = {
   allow: boolean;
   redactSnippet?: boolean;
@@ -168,7 +174,7 @@ function buildServer(): McpServer {
         matches_returned: job.matches.length,
         redacted: job.redacted,
         error: job.error,
-        results: job.matches,
+        results: job.matches.map(toPublicSearchMatch),
       });
     },
   );
@@ -583,6 +589,14 @@ function getRedactionToken(match: SearchMatch): string {
   const start = Math.max(0, Math.min(match.matchStart, match.text.length));
   const end = Math.max(start, Math.min(match.matchEnd, match.text.length));
   return match.text.slice(start, end);
+}
+
+function toPublicSearchMatch(match: SearchMatch): PublicSearchMatch {
+  return {
+    text: match.text,
+    redacted: match.redacted,
+    redactionReasons: match.redactionReasons,
+  };
 }
 
 async function evaluatePolicy(input: Record<string, unknown>): Promise<SearchDecision> {

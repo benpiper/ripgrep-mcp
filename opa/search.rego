@@ -4,24 +4,6 @@ import rego.v1
 default decision.allow := false
 default decision.redactSnippet := false
 default decision.redactPath := false
-default decision.passwordKeywordDetected := false
-default decision.passwdKeywordDetected := false
-default decision.apiKeyKeywordDetected := false
-default decision.authorizationKeywordDetected := false
-default decision.secretKeywordDetected := false
-default decision.awsAccessKeyDetected := false
-default decision.privateKeyMaterialDetected := false
-default decision.emailAddressDetected := false
-default decision.ssnDetected := false
-default decision.phoneNumberDetected := false
-default decision.paymentCardDetected := false
-default decision.healthcareTerminologyDetected := false
-default decision.healthcareAcronymDetected := false
-default decision.dotfilePathDetected := false
-default decision.gitMetadataPathDetected := false
-default decision.nodeModulesPathDetected := false
-default decision.environmentFilePathDetected := false
-default decision.privateKeyFileDetected := false
 
 decision.allow := true if {
   input.action == "start_search"
@@ -48,107 +30,107 @@ decision.redactPath := true if {
   denied_path(input.match.path)
 }
 
-decision.passwordKeywordDetected := true if {
+decision.reasonCodes contains "password_keyword" if {
   input.action == "read_search_result"
   regex.match("(?i)password", input.match.text)
 }
 
-decision.passwdKeywordDetected := true if {
+decision.reasonCodes contains "passwd_keyword" if {
   input.action == "read_search_result"
   regex.match("(?i)passwd", input.match.text)
 }
 
-decision.apiKeyKeywordDetected := true if {
+decision.reasonCodes contains "api_key_keyword" if {
   input.action == "read_search_result"
   regex.match("(?i)api[_-]?key", input.match.text)
 }
 
-decision.authorizationKeywordDetected := true if {
+decision.reasonCodes contains "authorization_keyword" if {
   input.action == "read_search_result"
   regex.match("(?i)authorization", input.match.text)
 }
 
-decision.secretKeywordDetected := true if {
+decision.reasonCodes contains "secret_keyword" if {
   input.action == "read_search_result"
   regex.match("(?i)secret", input.match.text)
 }
 
-decision.awsAccessKeyDetected := true if {
+decision.reasonCodes contains "aws_access_key" if {
   input.action == "read_search_result"
   regex.match("AKIA[0-9A-Z]{16}", input.match.text)
 }
 
-decision.privateKeyMaterialDetected := true if {
+decision.reasonCodes contains "private_key_material" if {
   input.action == "read_search_result"
   regex.match("(?i)-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----", input.match.text)
 }
 
-decision.emailAddressDetected := true if {
+decision.reasonCodes contains "email_address" if {
   input.action == "read_search_result"
   regex.match("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}", input.match.text)
 }
 
-decision.ssnDetected := true if {
+decision.reasonCodes contains "ssn" if {
   input.action == "read_search_result"
   regex.match("\\b\\d{3}-\\d{2}-\\d{4}\\b", input.match.text)
 }
 
-decision.phoneNumberDetected := true if {
+decision.reasonCodes contains "phone_number" if {
   input.action == "read_search_result"
   regex.match("\\b(?:\\+?1[-. ]?)?(?:\\(\\d{3}\\)|\\d{3})[-. ]?\\d{3}[-. ]?\\d{4}\\b", input.match.text)
 }
 
-decision.paymentCardDetected := true if {
+decision.reasonCodes contains "payment_card_number" if {
   input.action == "read_search_result"
   regex.match("\\b\\d{13,19}\\b", input.match.text)
 }
 
-decision.healthcareTerminologyDetected := true if {
+decision.reasonCodes contains "healthcare_terminology" if {
   input.action == "read_search_result"
   regex.match("(?i)\\b(patient|diagnosis|treatment|medication|prescription|allerg(y|ies)|mrn|chart\\s*number|medical\\s*record\\s*number)\\b", input.match.text)
 }
 
-decision.healthcareAcronymDetected := true if {
+decision.reasonCodes contains "healthcare_acronym" if {
   input.action == "read_search_result"
   regex.match("(?i)\\b(icd-?10|cpt|npi|hipaa|ehr|emr)\\b", input.match.text)
 }
 
-decision.dotfilePathDetected := true if {
+decision.reasonCodes contains "dotfile_path" if {
   input.action == "read_search_result"
   startswith(input.match.path, ".")
 }
 
-decision.gitMetadataPathDetected := true if {
+decision.reasonCodes contains "git_metadata_path" if {
   input.action == "read_search_result"
   contains(input.match.path, "/.git/")
 }
 
-decision.nodeModulesPathDetected := true if {
+decision.reasonCodes contains "node_modules_path" if {
   input.action == "read_search_result"
   contains(input.match.path, "/node_modules/")
 }
 
-decision.environmentFilePathDetected := true if {
+decision.reasonCodes contains "environment_file_path" if {
   input.action == "read_search_result"
   endswith(input.match.path, ".env")
 }
 
-decision.environmentFilePathDetected := true if {
+decision.reasonCodes contains "environment_file_path" if {
   input.action == "read_search_result"
   endswith(input.match.path, ".env.local")
 }
 
-decision.privateKeyFileDetected := true if {
+decision.reasonCodes contains "private_key_file_path" if {
   input.action == "read_search_result"
   endswith(input.match.path, ".pem")
 }
 
-decision.privateKeyFileDetected := true if {
+decision.reasonCodes contains "private_key_file_path" if {
   input.action == "read_search_result"
   endswith(input.match.path, ".key")
 }
 
-decision.privateKeyFileDetected := true if {
+decision.reasonCodes contains "private_key_file_path" if {
   input.action == "read_search_result"
   endswith(input.match.path, ".p12")
 }

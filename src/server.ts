@@ -43,24 +43,7 @@ type SearchDecision = {
   allow: boolean;
   redactSnippet?: boolean;
   redactPath?: boolean;
-  passwordKeywordDetected?: boolean;
-  passwdKeywordDetected?: boolean;
-  apiKeyKeywordDetected?: boolean;
-  authorizationKeywordDetected?: boolean;
-  secretKeywordDetected?: boolean;
-  awsAccessKeyDetected?: boolean;
-  privateKeyMaterialDetected?: boolean;
-  emailAddressDetected?: boolean;
-  ssnDetected?: boolean;
-  phoneNumberDetected?: boolean;
-  paymentCardDetected?: boolean;
-  healthcareTerminologyDetected?: boolean;
-  healthcareAcronymDetected?: boolean;
-  dotfilePathDetected?: boolean;
-  gitMetadataPathDetected?: boolean;
-  nodeModulesPathDetected?: boolean;
-  environmentFilePathDetected?: boolean;
-  privateKeyFileDetected?: boolean;
+  reasonCodes?: string[];
 };
 
 type SearchJob = {
@@ -317,7 +300,11 @@ async function handleRgLine(job: SearchJob, line: string): Promise<void> {
   const decision = await evaluatePolicy({
     action: "read_search_result",
     request: job.request,
-    match,
+    match: {
+      ...match,
+      redactionToken: getRedactionToken(match),
+      redactionContext: getRedactionContext(match),
+    },
   });
   if (!decision.allow) {
     job.redacted += 1;
@@ -413,7 +400,7 @@ function parseRgMatch(payload: unknown): SearchMatch | null {
 }
 
 function applyDecision(match: SearchMatch, decision: SearchDecision): SearchMatch {
-  const redactionReasons = buildRedactionReasons(match, decision);
+  const redactionReasons = buildRedactionReasons(decision);
   const redacted = Boolean(decision.redactSnippet || decision.redactPath);
 
   return {
@@ -438,128 +425,8 @@ function redactSnippet(match: SearchMatch): string {
   return `${match.text.slice(0, start)}[REDACTED]${match.text.slice(end)}`;
 }
 
-function buildRedactionReasons(match: SearchMatch, decision: SearchDecision): string[] {
-  const reasons: string[] = [];
-
-  if (decision.redactSnippet) {
-    reasons.push(...classifySnippetRedaction(match));
-  }
-
-  if (decision.redactPath) {
-    reasons.push(...classifyPathRedaction(match.path));
-  }
-
-  return [...new Set(reasons)];
-}
-
-function classifySnippetRedaction(match: SearchMatch): string[] {
-  const token = getRedactionToken(match);
-  const context = getRedactionContext(match);
-  const reasons: string[] = [];
-
-  if (/password/i.test(token)) {
-    reasons.push("password keyword detected");
-  }
-
-  if (/passwd/i.test(token)) {
-    reasons.push("passwd keyword detected");
-  }
-
-  if (/api[_-]?key/i.test(token)) {
-    reasons.push("API key keyword detected");
-  }
-
-  if (/authorization/i.test(token)) {
-    reasons.push("authorization keyword detected");
-  }
-
-  if (/secret/i.test(token)) {
-    reasons.push("secret keyword detected");
-  }
-
-  if (/AKIA[0-9A-Z]{16}/.test(token)) {
-    reasons.push("AWS access key detected");
-  }
-
-  if (/-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(token)) {
-    reasons.push("private key material detected");
-  }
-
-  if (/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(token)) {
-    reasons.push("email address detected");
-  }
-
-  if (/\b\d{3}-\d{2}-\d{4}\b/.test(token)) {
-    reasons.push("SSN pattern detected");
-  }
-
-  if (/\b(?:\+?1[-. ]?)?(?:\(\d{3}\)|\d{3})[-. ]?\d{3}[-. ]?\d{4}\b/.test(token)) {
-    reasons.push("phone number detected");
-  }
-
-  if (/\b\d{13,19}\b/.test(token)) {
-    reasons.push("payment card-like number detected");
-  }
-
-  if (/\b(patient|diagnosis|treatment|medication|prescription|allerg(y|ies)|mrn|chart\s*number|medical\s*record\s*number)\b/i.test(token)) {
-    reasons.push("healthcare terminology detected");
-  }
-
-  if (/\b(icd-?10|cpt|npi|hipaa|ehr|emr)\b/i.test(token)) {
-    reasons.push("healthcare acronym detected");
-  }
-
-  if (/\bpassword\b/i.test(context) && reasons.length === 0) {
-    reasons.push("password field value redacted");
-  }
-
-  if (/\bpasswd\b/i.test(context) && reasons.length === 0) {
-    reasons.push("passwd field value redacted");
-  }
-
-  if (/\bapi[_-]?key\b/i.test(context) && reasons.length === 0) {
-    reasons.push("API key field value redacted");
-  }
-
-  if (/\bauthorization\b/i.test(context) && reasons.length === 0) {
-    reasons.push("authorization field value redacted");
-  }
-
-  if (/\bsecret\b/i.test(context) && reasons.length === 0) {
-    reasons.push("secret field value redacted");
-  }
-
-  return reasons;
-}
-
-function classifyPathRedaction(path: string): string[] {
-  const reasons: string[] = [];
-
-  if (path.startsWith(".")) {
-    reasons.push("dotfile path redacted");
-  }
-
-  if (path.includes("/.git/")) {
-    reasons.push("git metadata path redacted");
-  }
-
-  if (path.includes("/node_modules/")) {
-    reasons.push("node_modules path redacted");
-  }
-
-  if (path.endsWith(".env") || path.endsWith(".env.local")) {
-    reasons.push("environment file path redacted");
-  }
-
-  if (path.endsWith(".pem") || path.endsWith(".key") || path.endsWith(".p12")) {
-    reasons.push("private key file path redacted");
-  }
-
-  if (reasons.length === 0) {
-    reasons.push("restricted path redacted");
-  }
-
-  return reasons;
+function buildRedactionReasons(decision: SearchDecision): string[] {
+  return [...new Set(decision.reasonCodes ?? [])];
 }
 
 function getRedactionContext(match: SearchMatch): string {
@@ -618,24 +485,9 @@ async function evaluatePolicy(input: Record<string, unknown>): Promise<SearchDec
     allow: body.result?.allow ?? false,
     redactSnippet: body.result?.redactSnippet ?? false,
     redactPath: body.result?.redactPath ?? false,
-    passwordKeywordDetected: body.result?.passwordKeywordDetected ?? false,
-    passwdKeywordDetected: body.result?.passwdKeywordDetected ?? false,
-    apiKeyKeywordDetected: body.result?.apiKeyKeywordDetected ?? false,
-    authorizationKeywordDetected: body.result?.authorizationKeywordDetected ?? false,
-    secretKeywordDetected: body.result?.secretKeywordDetected ?? false,
-    awsAccessKeyDetected: body.result?.awsAccessKeyDetected ?? false,
-    privateKeyMaterialDetected: body.result?.privateKeyMaterialDetected ?? false,
-    emailAddressDetected: body.result?.emailAddressDetected ?? false,
-    ssnDetected: body.result?.ssnDetected ?? false,
-    phoneNumberDetected: body.result?.phoneNumberDetected ?? false,
-    paymentCardDetected: body.result?.paymentCardDetected ?? false,
-    healthcareTerminologyDetected: body.result?.healthcareTerminologyDetected ?? false,
-    healthcareAcronymDetected: body.result?.healthcareAcronymDetected ?? false,
-    dotfilePathDetected: body.result?.dotfilePathDetected ?? false,
-    gitMetadataPathDetected: body.result?.gitMetadataPathDetected ?? false,
-    nodeModulesPathDetected: body.result?.nodeModulesPathDetected ?? false,
-    environmentFilePathDetected: body.result?.environmentFilePathDetected ?? false,
-    privateKeyFileDetected: body.result?.privateKeyFileDetected ?? false,
+    reasonCodes: Array.isArray(body.result?.reasonCodes)
+      ? body.result?.reasonCodes.filter((code): code is string => typeof code === "string")
+      : [],
   };
 }
 

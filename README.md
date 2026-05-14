@@ -62,7 +62,15 @@ The sample OPA policy lives in [opa/search.rego](/home/user/ripgrep-mcp/opa/sear
 
 The sample policy includes heuristics for common secret, PII, and PHI patterns. It is intentionally conservative and should be treated as a redaction layer, not a compliance guarantee.
 
-Redaction reasons are explicit classifications emitted by the policy-backed matcher. If a result is redacted, the `redactionReasons` array contains the named rule matches that fired. The server does not add a generic fallback reason.
+Redaction reasons are explicit `reasonCodes` emitted by OPA. If a result is redacted, the `redactionReasons` array mirrors those codes and the server does not add a generic fallback reason.
+
+Example codes include:
+
+- `password_keyword`
+- `email_address`
+- `aws_access_key`
+- `dotfile_path`
+- `private_key_file_path`
 
 Search defaults:
 

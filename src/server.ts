@@ -25,6 +25,8 @@ type SearchMatch = {
   line: number;
   column: number | null;
   text: string;
+  redacted?: boolean;
+  redactionReasons?: string[];
 };
 
 type SearchDecision = {
@@ -282,7 +284,12 @@ async function handleRgLine(job: SearchJob, line: string): Promise<void> {
     return;
   }
 
-  job.matches.push(applyDecision(match, decision));
+  const applied = applyDecision(match, decision);
+  if (applied.redacted) {
+    job.redacted += 1;
+  }
+
+  job.matches.push(applied);
 }
 
 function createJob(request: SearchRequest): SearchJob {
@@ -361,12 +368,39 @@ function parseRgMatch(payload: unknown): SearchMatch | null {
 }
 
 function applyDecision(match: SearchMatch, decision: SearchDecision): SearchMatch {
+  const redactionReasons = buildRedactionReasons(decision);
+  const redacted = redactionReasons.length > 0;
+
   return {
     path: decision.redactPath ? "[REDACTED]" : match.path,
     line: match.line,
     column: match.column,
     text: decision.redactSnippet ? "[REDACTED]" : match.text,
+    redacted,
+    redactionReasons: redacted ? redactionReasons : undefined,
   };
+}
+
+function buildRedactionReasons(decision: SearchDecision): string[] {
+  const reasons: string[] = [];
+
+  if (decision.redactSnippet) {
+    reasons.push("match text matched a sensitive-content rule");
+  }
+
+  if (decision.redactPath) {
+    reasons.push("match path matched a restricted-path rule");
+  }
+
+  if (!decision.redactSnippet && !decision.redactPath) {
+    return reasons;
+  }
+
+  if (reasons.length === 0) {
+    reasons.push("OPA requested redaction");
+  }
+
+  return reasons;
 }
 
 async function evaluatePolicy(input: Record<string, unknown>): Promise<SearchDecision> {

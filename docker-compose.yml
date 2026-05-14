@@ -1,0 +1,27 @@
+services:
+  opa:
+    image: openpolicyagent/opa:latest
+    command: ["run", "--server", "--addr=0.0.0.0:8181", "/policies"]
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./opa:/policies:ro
+
+  ripgrep-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      MCP_TRANSPORT: streamable-http
+      MCP_HTTP_HOST: 0.0.0.0
+      MCP_HTTP_PORT: 3000
+      OPA_URL: http://opa:8181
+      OPA_POLICY_PATH: search/decision
+      RG_BIN: rg
+    depends_on:
+      - opa
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/workspace
+    working_dir: /workspace

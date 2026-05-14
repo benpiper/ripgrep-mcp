@@ -17,23 +17,27 @@ This repo supports both **stdio** and **Streamable HTTP**. Use stdio for local l
 
 ```mermaid
 flowchart LR
-  A[Agent / Host] --> B[MCP Client or Local Bridge]
-  B -->|Streamable HTTP| C[Remote MCP Server]
-  C --> D[ripgrep]
-  C --> E[OPA Policy]
-  D --> C
-  E --> C
-  C -->|Redacted Results| B
+  A[Agent / MCP Client] --> T{Transport}
+  T -->|stdio| L[Local MCP Server]
+  T -->|Streamable HTTP| R[Remote MCP Server]
+  L --> P1[OPA: start_search]
+  R --> P1
+  P1 -->|allow| G[ripgrep --json]
+  G --> P2[OPA: read_search_result]
+  P2 -->|allow / redact| O[Returned match]
+  P2 -->|deny| X[Drop match]
+  O --> A
+  X --> A
 ```
 
 ## Flow
 
 1. The agent asks for a search.
-2. The MCP client sends the request to the remote MCP server.
-3. The server runs `rg` on the host that contains the repository.
-4. The server normalizes matches and sends them through OPA.
-5. OPA allows, denies, or redacts the result.
-6. The server returns only the approved output.
+2. The MCP client sends the request over `stdio` or Streamable HTTP.
+3. The server checks the search request against OPA before launching `rg`.
+4. The server runs `rg --json` on the host that contains the repository.
+5. The server normalizes each match and checks it against OPA again.
+6. OPA allows, denies, or redacts each result before the server returns output.
 
 ## Environment
 

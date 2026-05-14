@@ -451,59 +451,80 @@ function buildRedactionReasons(match: SearchMatch, decision: SearchDecision): st
 }
 
 function classifySnippetRedaction(match: SearchMatch): string[] {
-  const text = getRedactionContext(match);
+  const token = getRedactionToken(match);
+  const context = getRedactionContext(match);
   const reasons: string[] = [];
 
-  if (/password/i.test(text)) {
+  if (/password/i.test(token)) {
     reasons.push("password keyword detected");
   }
 
-  if (/passwd/i.test(text)) {
+  if (/passwd/i.test(token)) {
     reasons.push("passwd keyword detected");
   }
 
-  if (/api[_-]?key/i.test(text)) {
+  if (/api[_-]?key/i.test(token)) {
     reasons.push("API key keyword detected");
   }
 
-  if (/authorization/i.test(text)) {
+  if (/authorization/i.test(token)) {
     reasons.push("authorization keyword detected");
   }
 
-  if (/secret/i.test(text)) {
+  if (/secret/i.test(token)) {
     reasons.push("secret keyword detected");
   }
 
-  if (/AKIA[0-9A-Z]{16}/.test(text)) {
+  if (/AKIA[0-9A-Z]{16}/.test(token)) {
     reasons.push("AWS access key detected");
   }
 
-  if (/-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(text)) {
+  if (/-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(token)) {
     reasons.push("private key material detected");
   }
 
-  if (/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(text)) {
+  if (/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(token)) {
     reasons.push("email address detected");
   }
 
-  if (/\b\d{3}-\d{2}-\d{4}\b/.test(text)) {
+  if (/\b\d{3}-\d{2}-\d{4}\b/.test(token)) {
     reasons.push("SSN pattern detected");
   }
 
-  if (/\b(?:\+?1[-. ]?)?(?:\(\d{3}\)|\d{3})[-. ]?\d{3}[-. ]?\d{4}\b/.test(text)) {
+  if (/\b(?:\+?1[-. ]?)?(?:\(\d{3}\)|\d{3})[-. ]?\d{3}[-. ]?\d{4}\b/.test(token)) {
     reasons.push("phone number detected");
   }
 
-  if (/\b\d{13,19}\b/.test(text)) {
+  if (/\b\d{13,19}\b/.test(token)) {
     reasons.push("payment card-like number detected");
   }
 
-  if (/\b(patient|diagnosis|treatment|medication|prescription|allerg(y|ies)|mrn|chart\s*number|medical\s*record\s*number)\b/i.test(text)) {
+  if (/\b(patient|diagnosis|treatment|medication|prescription|allerg(y|ies)|mrn|chart\s*number|medical\s*record\s*number)\b/i.test(token)) {
     reasons.push("healthcare terminology detected");
   }
 
-  if (/\b(icd-?10|cpt|npi|hipaa|ehr|emr)\b/i.test(text)) {
+  if (/\b(icd-?10|cpt|npi|hipaa|ehr|emr)\b/i.test(token)) {
     reasons.push("healthcare acronym detected");
+  }
+
+  if (/\bpassword\b/i.test(context) && reasons.length === 0) {
+    reasons.push("password field value redacted");
+  }
+
+  if (/\bpasswd\b/i.test(context) && reasons.length === 0) {
+    reasons.push("passwd field value redacted");
+  }
+
+  if (/\bapi[_-]?key\b/i.test(context) && reasons.length === 0) {
+    reasons.push("API key field value redacted");
+  }
+
+  if (/\bauthorization\b/i.test(context) && reasons.length === 0) {
+    reasons.push("authorization field value redacted");
+  }
+
+  if (/\bsecret\b/i.test(context) && reasons.length === 0) {
+    reasons.push("secret field value redacted");
   }
 
   if (reasons.length === 0) {
@@ -551,6 +572,16 @@ function getRedactionContext(match: SearchMatch): string {
   const windowSize = 48;
   const start = Math.max(0, match.matchStart - windowSize);
   const end = Math.min(match.text.length, match.matchEnd + windowSize);
+  return match.text.slice(start, end);
+}
+
+function getRedactionToken(match: SearchMatch): string {
+  if (match.matchStart === null || match.matchEnd === null) {
+    return match.text;
+  }
+
+  const start = Math.max(0, Math.min(match.matchStart, match.text.length));
+  const end = Math.max(start, Math.min(match.matchEnd, match.text.length));
   return match.text.slice(start, end);
 }
 

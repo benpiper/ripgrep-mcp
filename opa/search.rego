@@ -17,7 +17,12 @@ decision.allow := true if {
 
 decision.redactSnippet := true if {
   input.action == "read_search_result"
-  looks_sensitive(input.match.text) or denied_path(input.match.path)
+  looks_sensitive(input.match.text)
+}
+
+decision.redactSnippet := true if {
+  input.action == "read_search_result"
+  denied_path(input.match.path)
 }
 
 decision.redactPath := true if {

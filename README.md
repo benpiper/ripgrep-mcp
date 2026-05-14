@@ -66,13 +66,22 @@ npm run build
 npm start
 ```
 
+## Sample MCP Config
+
+The repo includes a sample client config at [mcp-config.sample.json](/home/user/ripgrep-mcp/mcp-config.sample.json).
+Use `ripgrep-mcp-stdio-no-opa` for a local stdio launch without policy enforcement.
+Use `ripgrep-mcp-stdio-with-opa` if you want the server to call OPA before returning search results.
+Use `ripgrep-mcp-http` if you are connecting to the Streamable HTTP endpoint.
+
+If you do not want OPA, leave `OPA_URL` unset. The server will allow searches directly in that case.
+
 To run the remote HTTP transport locally:
 
 ```bash
 MCP_TRANSPORT=streamable-http MCP_HTTP_PORT=3000 npm start
 ```
 
-To use the sample policy, point `OPA_URL` at your OPA instance and load the `search` package from [opa/search.rego](/home/user/ripgrep-mcp/opa/search.rego).
+To use the sample policy, set `OPA_URL` to your OPA instance and load the `search` package from [opa/search.rego](/home/user/ripgrep-mcp/opa/search.rego).
 
 ## Docker Compose
 

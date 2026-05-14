@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "ripgrep-mcp-stdio-no-opa": {
+      "command": "node",
+      "args": ["/home/user/ripgrep-mcp/dist/server.js"],
+      "env": {
+        "MCP_TRANSPORT": "stdio"
+      }
+    },
+    "ripgrep-mcp-stdio-with-opa": {
+      "command": "node",
+      "args": ["/home/user/ripgrep-mcp/dist/server.js"],
+      "env": {
+        "MCP_TRANSPORT": "stdio",
+        "OPA_URL": "http://localhost:8181",
+        "OPA_POLICY_PATH": "search/decision"
+      }
+    },
+    "ripgrep-mcp-http": {
+      "url": "http://localhost:3000/mcp"
+    }
+  }
+}

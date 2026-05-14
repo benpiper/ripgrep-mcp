@@ -65,7 +65,7 @@ function buildServer(): McpServer {
     pattern: z.string().min(1),
     globs: z.array(z.string()).optional(),
     maxResults: z.number().int().positive().max(1000).optional(),
-    timeoutMs: z.number().int().positive().max(120_000).optional(),
+    timeoutMs: z.number().int().positive().max(600_000).optional(),
     contextLines: z.number().int().nonnegative().max(20).optional(),
   });
 

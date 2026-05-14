@@ -37,6 +37,24 @@ type SearchDecision = {
   allow: boolean;
   redactSnippet?: boolean;
   redactPath?: boolean;
+  passwordKeywordDetected?: boolean;
+  passwdKeywordDetected?: boolean;
+  apiKeyKeywordDetected?: boolean;
+  authorizationKeywordDetected?: boolean;
+  secretKeywordDetected?: boolean;
+  awsAccessKeyDetected?: boolean;
+  privateKeyMaterialDetected?: boolean;
+  emailAddressDetected?: boolean;
+  ssnDetected?: boolean;
+  phoneNumberDetected?: boolean;
+  paymentCardDetected?: boolean;
+  healthcareTerminologyDetected?: boolean;
+  healthcareAcronymDetected?: boolean;
+  dotfilePathDetected?: boolean;
+  gitMetadataPathDetected?: boolean;
+  nodeModulesPathDetected?: boolean;
+  environmentFilePathDetected?: boolean;
+  privateKeyFileDetected?: boolean;
 };
 
 type SearchJob = {
@@ -389,7 +407,7 @@ function parseRgMatch(payload: unknown): SearchMatch | null {
 }
 
 function applyDecision(match: SearchMatch, decision: SearchDecision): SearchMatch {
-  const redactionReasons = buildRedactionReasons(match, decision);
+  const redactionReasons = buildRedactionReasons(decision);
   const redacted = redactionReasons.length > 0;
 
   return {
@@ -414,115 +432,83 @@ function redactSnippet(match: SearchMatch): string {
   return `${match.text.slice(0, start)}[REDACTED]${match.text.slice(end)}`;
 }
 
-function buildRedactionReasons(match: SearchMatch, decision: SearchDecision): string[] {
+function buildRedactionReasons(decision: SearchDecision): string[] {
   const reasons: string[] = [];
 
-  if (decision.redactSnippet) {
-    reasons.push(...classifySnippetRedaction(match.text));
-  }
-
-  if (decision.redactPath) {
-    reasons.push(...classifyPathRedaction(match.path));
-  }
-
-  if (!decision.redactSnippet && !decision.redactPath) {
-    return reasons;
-  }
-
-  if (reasons.length === 0) {
-    reasons.push("OPA requested redaction");
-  }
-
-  return reasons;
-}
-
-function classifySnippetRedaction(text: string): string[] {
-  const reasons: string[] = [];
-
-  if (/password/i.test(text)) {
+  if (decision.passwordKeywordDetected) {
     reasons.push("password keyword detected");
   }
 
-  if (/passwd/i.test(text)) {
+  if (decision.passwdKeywordDetected) {
     reasons.push("passwd keyword detected");
   }
 
-  if (/api[_-]?key/i.test(text)) {
+  if (decision.apiKeyKeywordDetected) {
     reasons.push("API key keyword detected");
   }
 
-  if (/authorization/i.test(text)) {
+  if (decision.authorizationKeywordDetected) {
     reasons.push("authorization keyword detected");
   }
 
-  if (/secret/i.test(text) && !reasons.includes("password keyword detected")) {
+  if (decision.secretKeywordDetected) {
     reasons.push("secret keyword detected");
   }
 
-  if (/AKIA[0-9A-Z]{16}/.test(text)) {
+  if (decision.awsAccessKeyDetected) {
     reasons.push("AWS access key detected");
   }
 
-  if (/-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(text)) {
+  if (decision.privateKeyMaterialDetected) {
     reasons.push("private key material detected");
   }
 
-  if (/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(text)) {
+  if (decision.emailAddressDetected) {
     reasons.push("email address detected");
   }
 
-  if (/\b\d{3}-\d{2}-\d{4}\b/.test(text)) {
+  if (decision.ssnDetected) {
     reasons.push("SSN pattern detected");
   }
 
-  if (/\b(?:\+?1[-. ]?)?(?:\(\d{3}\)|\d{3})[-. ]?\d{3}[-. ]?\d{4}\b/.test(text)) {
+  if (decision.phoneNumberDetected) {
     reasons.push("phone number detected");
   }
 
-  if (/\b\d{13,19}\b/.test(text)) {
+  if (decision.paymentCardDetected) {
     reasons.push("payment card-like number detected");
   }
 
-  if (/\b(patient|diagnosis|treatment|medication|prescription|allerg(y|ies)|mrn|chart\s*number|medical\s*record\s*number)\b/i.test(text)) {
+  if (decision.healthcareTerminologyDetected) {
     reasons.push("healthcare terminology detected");
   }
 
-  if (/\b(icd-?10|cpt|npi|hipaa|ehr|emr)\b/i.test(text)) {
+  if (decision.healthcareAcronymDetected) {
     reasons.push("healthcare acronym detected");
   }
 
-  if (reasons.length === 0) {
-    reasons.push("sensitive content detected");
-  }
-
-  return reasons;
-}
-
-function classifyPathRedaction(path: string): string[] {
-  const reasons: string[] = [];
-
-  if (path.startsWith(".")) {
+  if (decision.dotfilePathDetected) {
     reasons.push("dotfile path redacted");
   }
 
-  if (path.includes("/.git/")) {
+  if (decision.gitMetadataPathDetected) {
     reasons.push("git metadata path redacted");
   }
 
-  if (path.includes("/node_modules/")) {
+  if (decision.nodeModulesPathDetected) {
     reasons.push("node_modules path redacted");
   }
 
-  if (path.endsWith(".env") || path.endsWith(".env.local")) {
+  if (decision.environmentFilePathDetected) {
     reasons.push("environment file path redacted");
   }
 
-  if (path.endsWith(".pem") || path.endsWith(".key") || path.endsWith(".p12")) {
+  if (decision.privateKeyFileDetected) {
     reasons.push("private key file path redacted");
   }
 
-  if (reasons.length === 0) {
-    reasons.push("restricted path redacted");
+  if (reasons.length === 0 && (decision.redactSnippet || decision.redactPath)) {
+    reasons.push("OPA requested redaction");
   }
 
   return reasons;
@@ -555,6 +541,24 @@ async function evaluatePolicy(input: Record<string, unknown>): Promise<SearchDec
     allow: body.result?.allow ?? false,
     redactSnippet: body.result?.redactSnippet ?? false,
     redactPath: body.result?.redactPath ?? false,
+    passwordKeywordDetected: body.result?.passwordKeywordDetected ?? false,
+    passwdKeywordDetected: body.result?.passwdKeywordDetected ?? false,
+    apiKeyKeywordDetected: body.result?.apiKeyKeywordDetected ?? false,
+    authorizationKeywordDetected: body.result?.authorizationKeywordDetected ?? false,
+    secretKeywordDetected: body.result?.secretKeywordDetected ?? false,
+    awsAccessKeyDetected: body.result?.awsAccessKeyDetected ?? false,
+    privateKeyMaterialDetected: body.result?.privateKeyMaterialDetected ?? false,
+    emailAddressDetected: body.result?.emailAddressDetected ?? false,
+    ssnDetected: body.result?.ssnDetected ?? false,
+    phoneNumberDetected: body.result?.phoneNumberDetected ?? false,
+    paymentCardDetected: body.result?.paymentCardDetected ?? false,
+    healthcareTerminologyDetected: body.result?.healthcareTerminologyDetected ?? false,
+    healthcareAcronymDetected: body.result?.healthcareAcronymDetected ?? false,
+    dotfilePathDetected: body.result?.dotfilePathDetected ?? false,
+    gitMetadataPathDetected: body.result?.gitMetadataPathDetected ?? false,
+    nodeModulesPathDetected: body.result?.nodeModulesPathDetected ?? false,
+    environmentFilePathDetected: body.result?.environmentFilePathDetected ?? false,
+    privateKeyFileDetected: body.result?.privateKeyFileDetected ?? false,
   };
 }
 

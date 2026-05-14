@@ -407,7 +407,7 @@ function parseRgMatch(payload: unknown): SearchMatch | null {
 }
 
 function applyDecision(match: SearchMatch, decision: SearchDecision): SearchMatch {
-  const redactionReasons = buildRedactionReasons(decision);
+  const redactionReasons = buildRedactionReasons(match, decision);
   const redacted = redactionReasons.length > 0;
 
   return {
@@ -432,86 +432,126 @@ function redactSnippet(match: SearchMatch): string {
   return `${match.text.slice(0, start)}[REDACTED]${match.text.slice(end)}`;
 }
 
-function buildRedactionReasons(decision: SearchDecision): string[] {
+function buildRedactionReasons(match: SearchMatch, decision: SearchDecision): string[] {
   const reasons: string[] = [];
 
-  if (decision.passwordKeywordDetected) {
-    reasons.push("password keyword detected");
+  if (decision.redactSnippet) {
+    reasons.push(...classifySnippetRedaction(match));
   }
 
-  if (decision.passwdKeywordDetected) {
-    reasons.push("passwd keyword detected");
-  }
-
-  if (decision.apiKeyKeywordDetected) {
-    reasons.push("API key keyword detected");
-  }
-
-  if (decision.authorizationKeywordDetected) {
-    reasons.push("authorization keyword detected");
-  }
-
-  if (decision.secretKeywordDetected) {
-    reasons.push("secret keyword detected");
-  }
-
-  if (decision.awsAccessKeyDetected) {
-    reasons.push("AWS access key detected");
-  }
-
-  if (decision.privateKeyMaterialDetected) {
-    reasons.push("private key material detected");
-  }
-
-  if (decision.emailAddressDetected) {
-    reasons.push("email address detected");
-  }
-
-  if (decision.ssnDetected) {
-    reasons.push("SSN pattern detected");
-  }
-
-  if (decision.phoneNumberDetected) {
-    reasons.push("phone number detected");
-  }
-
-  if (decision.paymentCardDetected) {
-    reasons.push("payment card-like number detected");
-  }
-
-  if (decision.healthcareTerminologyDetected) {
-    reasons.push("healthcare terminology detected");
-  }
-
-  if (decision.healthcareAcronymDetected) {
-    reasons.push("healthcare acronym detected");
-  }
-
-  if (decision.dotfilePathDetected) {
-    reasons.push("dotfile path redacted");
-  }
-
-  if (decision.gitMetadataPathDetected) {
-    reasons.push("git metadata path redacted");
-  }
-
-  if (decision.nodeModulesPathDetected) {
-    reasons.push("node_modules path redacted");
-  }
-
-  if (decision.environmentFilePathDetected) {
-    reasons.push("environment file path redacted");
-  }
-
-  if (decision.privateKeyFileDetected) {
-    reasons.push("private key file path redacted");
+  if (decision.redactPath) {
+    reasons.push(...classifyPathRedaction(match.path));
   }
 
   if (reasons.length === 0 && (decision.redactSnippet || decision.redactPath)) {
     reasons.push("OPA requested redaction");
   }
 
+  return [...new Set(reasons)];
+}
+
+function classifySnippetRedaction(match: SearchMatch): string[] {
+  const text = getRedactionContext(match);
+  const reasons: string[] = [];
+
+  if (/password/i.test(text)) {
+    reasons.push("password keyword detected");
+  }
+
+  if (/passwd/i.test(text)) {
+    reasons.push("passwd keyword detected");
+  }
+
+  if (/api[_-]?key/i.test(text)) {
+    reasons.push("API key keyword detected");
+  }
+
+  if (/authorization/i.test(text)) {
+    reasons.push("authorization keyword detected");
+  }
+
+  if (/secret/i.test(text)) {
+    reasons.push("secret keyword detected");
+  }
+
+  if (/AKIA[0-9A-Z]{16}/.test(text)) {
+    reasons.push("AWS access key detected");
+  }
+
+  if (/-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(text)) {
+    reasons.push("private key material detected");
+  }
+
+  if (/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(text)) {
+    reasons.push("email address detected");
+  }
+
+  if (/\b\d{3}-\d{2}-\d{4}\b/.test(text)) {
+    reasons.push("SSN pattern detected");
+  }
+
+  if (/\b(?:\+?1[-. ]?)?(?:\(\d{3}\)|\d{3})[-. ]?\d{3}[-. ]?\d{4}\b/.test(text)) {
+    reasons.push("phone number detected");
+  }
+
+  if (/\b\d{13,19}\b/.test(text)) {
+    reasons.push("payment card-like number detected");
+  }
+
+  if (/\b(patient|diagnosis|treatment|medication|prescription|allerg(y|ies)|mrn|chart\s*number|medical\s*record\s*number)\b/i.test(text)) {
+    reasons.push("healthcare terminology detected");
+  }
+
+  if (/\b(icd-?10|cpt|npi|hipaa|ehr|emr)\b/i.test(text)) {
+    reasons.push("healthcare acronym detected");
+  }
+
+  if (reasons.length === 0) {
+    reasons.push("sensitive content detected");
+  }
+
   return reasons;
+}
+
+function classifyPathRedaction(path: string): string[] {
+  const reasons: string[] = [];
+
+  if (path.startsWith(".")) {
+    reasons.push("dotfile path redacted");
+  }
+
+  if (path.includes("/.git/")) {
+    reasons.push("git metadata path redacted");
+  }
+
+  if (path.includes("/node_modules/")) {
+    reasons.push("node_modules path redacted");
+  }
+
+  if (path.endsWith(".env") || path.endsWith(".env.local")) {
+    reasons.push("environment file path redacted");
+  }
+
+  if (path.endsWith(".pem") || path.endsWith(".key") || path.endsWith(".p12")) {
+    reasons.push("private key file path redacted");
+  }
+
+  if (reasons.length === 0) {
+    reasons.push("restricted path redacted");
+  }
+
+  return reasons;
+}
+
+function getRedactionContext(match: SearchMatch): string {
+  if (match.matchStart === null || match.matchEnd === null) {
+    return match.text;
+  }
+
+  const windowSize = 48;
+  const start = Math.max(0, match.matchStart - windowSize);
+  const end = Math.min(match.text.length, match.matchEnd + windowSize);
+  return match.text.slice(start, end);
 }
 
 async function evaluatePolicy(input: Record<string, unknown>): Promise<SearchDecision> {

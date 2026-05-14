@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { stat } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createInterface } from "node:readline";
 import { randomUUID } from "node:crypto";
@@ -38,6 +39,8 @@ type SearchJob = {
   status: SearchStatus;
   startedAt: string;
   finishedAt?: string;
+  exitCode?: number | null;
+  signal?: NodeJS.Signals | null;
   matches: SearchMatch[];
   redacted: number;
   error?: string;
@@ -87,6 +90,15 @@ function buildServer(): McpServer {
         return textResult({
           status: "denied",
           reason: "OPA denied the search request",
+        });
+      }
+
+      try {
+        await validateSearchRoot(request.root);
+      } catch (error) {
+        return textResult({
+          status: "failed",
+          reason: error instanceof Error ? error.message : String(error),
         });
       }
 
@@ -214,16 +226,24 @@ async function runSearch(job: SearchJob): Promise<void> {
   child.once("close", (code, signal) => {
     clearTimeout(job.timeout);
     stdout.close();
+    job.exitCode = code;
+    job.signal = signal;
 
     if (job.status !== "running") {
       return;
     }
 
-    if (signal || (code !== 0 && code !== 1)) {
+    if (signal) {
+      job.status = "failed";
+      job.error = job.error ?? `rg exited with signal ${signal}`;
+    } else if (code === 0 || code === 1 || (code === 2 && job.matches.length > 0)) {
+      job.status = "done";
+      if (code === 2 && !job.error) {
+        job.error = "rg exited with code 2";
+      }
+    } else {
       job.status = "failed";
       job.error = job.error ?? `rg exited with code ${code ?? "unknown"}`;
-    } else {
-      job.status = "done";
     }
 
     job.finishedAt = new Date().toISOString();
@@ -298,6 +318,14 @@ function buildGlobArgs(globs: string[] | undefined): string[] {
   }
 
   return globs.flatMap((glob) => ["--glob", glob]);
+}
+
+async function validateSearchRoot(root: string): Promise<void> {
+  try {
+    await stat(root);
+  } catch {
+    throw new Error(`Search root is not accessible: ${root}`);
+  }
 }
 
 function parseRgMatch(payload: unknown): SearchMatch | null {

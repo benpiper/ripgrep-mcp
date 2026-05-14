@@ -18,6 +18,8 @@ type SearchRequest = {
   maxResults?: number;
   timeoutMs?: number;
   contextLines?: number;
+  literal?: boolean;
+  caseInsensitive?: boolean;
 };
 
 type SearchMatch = {
@@ -67,6 +69,8 @@ function buildServer(): McpServer {
     maxResults: z.number().int().positive().max(1000).optional(),
     timeoutMs: z.number().int().positive().max(600_000).optional(),
     contextLines: z.number().int().nonnegative().max(20).optional(),
+    literal: z.boolean().optional(),
+    caseInsensitive: z.boolean().optional(),
   });
 
   server.registerTool(
@@ -84,6 +88,8 @@ function buildServer(): McpServer {
         maxResults: input.maxResults ?? 200,
         timeoutMs: input.timeoutMs ?? 30_000,
         contextLines: input.contextLines ?? 0,
+        literal: input.literal ?? true,
+        caseInsensitive: input.caseInsensitive ?? true,
       };
 
       const policyCheck = await evaluatePolicy({
@@ -196,6 +202,14 @@ async function runSearch(job: SearchJob): Promise<void> {
 
   if (job.request.contextLines && job.request.contextLines > 0) {
     args.push("--context", String(job.request.contextLines));
+  }
+
+  if (job.request.literal) {
+    args.push("--fixed-strings");
+  }
+
+  if (job.request.caseInsensitive) {
+    args.push("-i");
   }
 
   args.push(job.request.pattern, job.request.root);

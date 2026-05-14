@@ -62,6 +62,13 @@ The sample OPA policy lives in [opa/search.rego](/home/user/ripgrep-mcp/opa/sear
 
 The sample policy includes heuristics for common secret, PII, and PHI patterns. It is intentionally conservative and should be treated as a redaction layer, not a compliance guarantee.
 
+Search defaults:
+
+- literal string matching is enabled by default
+- case-insensitive matching is enabled by default
+- set `literal: false` to use regex search
+- set `caseInsensitive: false` to use case-sensitive search
+
 ## Run
 
 ```bash
